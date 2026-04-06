@@ -52,6 +52,7 @@ public class PhoneControllerServer {
             server.createContext("/ControllerApp.js", this::handleScript);
             server.createContext("/ping", this::handlePing);
             server.createContext("/tap", this::handleTap);
+            server.createContext("/volume", this::handleVolume);
 
             server.start();
 
@@ -363,6 +364,24 @@ public class PhoneControllerServer {
         } else if ("REPLAY_LEVEL".equals(cmd)) {
             queueReplayLevelPress();
             clearUiEvent();
+        }
+
+        writeResponse(exchange, "text/plain; charset=UTF-8", "OK");
+    }
+
+    private void handleVolume(HttpExchange exchange) throws IOException {
+        markClientSeen(exchange);
+        String value = getParam(exchange.getRequestURI().getQuery(), "v");
+
+        if (value != null) {
+            try {
+                int intValue = Integer.parseInt(value);
+                float normalized = Math.max(0, Math.min(100, intValue)) / 100.0f;
+                // Ajusteaza volumul muzicii folosind variabila statica music
+                GamePanel.music.setVolume(normalized);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
         }
 
         writeResponse(exchange, "text/plain; charset=UTF-8", "OK");

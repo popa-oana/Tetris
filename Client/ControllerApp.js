@@ -1,4 +1,4 @@
-﻿let lastEventId = 0;
+let lastEventId = 0;
 let isPaused = false;
 let lineResetTimer = null;
 
@@ -88,6 +88,10 @@ bindTapButton('restartBtn', 'RESTART', () => {
     document.getElementById('pauseBtn').textContent = 'Pause';
     showControllerScreen();
     setReadyState();
+});
+
+document.getElementById('volume').addEventListener('input', function () {
+    api('/volume?v=' + encodeURIComponent(this.value)).catch(() => handleConnectionLost());
 });
 
 document.addEventListener('dblclick', function (e) {
