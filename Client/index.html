@@ -1,0 +1,46 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Tetris Phone Controller</title>
+
+    <link rel="stylesheet" href="/style.css">
+
+</head>
+
+<body>
+    <div class="wrap">
+        <div id="status" class="status lost">Connecting...</div>
+
+        <div id="controllerScreen" class="screen show">
+            <div id="eventBox" class="eventBox">Ready</div>
+
+            <div class="dpad">
+                <div class="empty">.</div>
+                <button id="rotateBtn" class="dir">⟳</button>
+                <div class="empty">.</div>
+                <button id="leftBtn" class="dir">◀</button>
+                <button id="downBtn" class="dir">▼</button>
+                <button id="rightBtn" class="dir">▶</button>
+            </div>
+
+            <div class="actions">
+                <button id="pauseBtn" class="wide">Pause</button>
+                <button id="restartBtn" class="wide">Restart</button>
+            </div>
+
+            <div class="footer">
+                Keep this page open on your iPhone.<br>
+                Both devices must stay on the same Wi-Fi network.
+            </div>
+        </div>
+    </div>
+
+
+    <script src="/ControllerApp.js"></script>
+
+</body>
+
+</html>

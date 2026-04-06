@@ -57,6 +57,10 @@ public class PlayManager {
     private static final int MIN_DROP_INTERVAL = 8;
 
     private GameUI gameUI;
+    private PhoneControllerServer phoneControllerServer;
+
+    private boolean waitingForPhone = true;
+    private boolean phoneHasConnectedOnce = false;
 
     public PlayManager() {
         left_x = (GamePanel.WIDTH / 2) - (WIDTH / 2);
@@ -66,8 +70,9 @@ public class PlayManager {
 
         MINO_START_X = left_x + (WIDTH / 2) - Block.SIZE;
         MINO_START_Y = top_y + Block.SIZE;
-        NEXTMINO_X = right_x + 175;
-        NEXTMINO_Y = top_y + 500;
+
+        NEXTMINO_X = right_x + 170;
+        NEXTMINO_Y = top_y + 520;
 
         loadImages();
 
@@ -90,12 +95,10 @@ public class PlayManager {
         gameOverImage = ImageUtils.loadImage("/res/gameoverText.png");
         tetrisImage = ImageUtils.loadImage("/res/tetris.png");
 
-        // SCALE
         if (tetrisImage != null) {
             tetrisImage = ImageUtils.scaleImage(tetrisImage, 210, 125);
         }
 
-        // BLUR + CROP
         if (wallpaper != null) {
             blurredWallpaper = ImageUtils.blurImage(wallpaper);
 
@@ -115,10 +118,9 @@ public class PlayManager {
                     220,
                     220
             );
-            nextPanelCrop = ImageUtils.scaleImage(crop2, 192, 192);
+            nextPanelCrop = ImageUtils.scaleImage(crop2, 172, 172);
         }
 
-        // ROTATE
         if (pauseImage != null) {
             rotatedPauseImage = ImageUtils.rotateImage(pauseImage, -18);
         }
@@ -126,6 +128,18 @@ public class PlayManager {
 
     public void setGameUI(GameUI gameUI) {
         this.gameUI = gameUI;
+    }
+
+    public void setPhoneControllerServer(PhoneControllerServer server) {
+        this.phoneControllerServer = server;
+    }
+
+    public void setWaitingForPhone(boolean waitingForPhone) {
+        this.waitingForPhone = waitingForPhone;
+    }
+
+    public void setPhoneHasConnectedOnce(boolean phoneHasConnectedOnce) {
+        this.phoneHasConnectedOnce = phoneHasConnectedOnce;
     }
 
     public boolean isLevelCompleted() {
@@ -166,9 +180,9 @@ public class PlayManager {
         return Math.max(0, levelTargetScore - currentLevelScore);
     }
 
-    // =========================
-    // RLE - COMPRESIA TABLEI
-    // =========================
+    public int getScore() {
+        return score;
+    }
 
     public int[][] buildBoardMatrix() {
         int rows = HEIGHT / Block.SIZE;
@@ -234,6 +248,10 @@ public class PlayManager {
             KeyHandler.pausePressed = false;
             music.stop();
 
+            if (phoneControllerServer != null) {
+                phoneControllerServer.pushUiEvent("level");
+            }
+
             if (gameUI != null) {
                 gameUI.showLevelCompleteButtons(true);
             }
@@ -255,6 +273,10 @@ public class PlayManager {
                 gameOver = true;
                 music.stop();
                 GamePanel.se.play(2, false);
+
+                if (phoneControllerServer != null) {
+                    phoneControllerServer.pushUiEvent("gameover");
+                }
             }
 
             currentMino.deactivating = false;
@@ -266,8 +288,6 @@ public class PlayManager {
             nextMino.setXY(NEXTMINO_X, NEXTMINO_Y);
 
             checkDelete();
-
-            // Afisare compresie RLE dupa fiecare piesa fixata
             printBoardCompressionInfo();
 
         } else {
@@ -319,6 +339,10 @@ public class PlayManager {
         if (lineCount > 0) {
             GamePanel.se.play(1, false);
 
+            if (phoneControllerServer != null) {
+                phoneControllerServer.pushUiEvent("line");
+            }
+
             int pointsEarned;
             switch (lineCount) {
                 case 1: pointsEarned = 100 * level; break;
@@ -364,6 +388,10 @@ public class PlayManager {
             gameUI.showLevelCompleteButtons(false);
         }
 
+        if (phoneControllerServer != null) {
+            phoneControllerServer.clearUiEvent();
+        }
+
         music.play(0, true);
         music.loop();
     }
@@ -379,6 +407,10 @@ public class PlayManager {
 
         if (gameUI != null) {
             gameUI.showLevelCompleteButtons(false);
+        }
+
+        if (phoneControllerServer != null) {
+            phoneControllerServer.clearUiEvent();
         }
 
         music.play(0, true);
@@ -414,6 +446,10 @@ public class PlayManager {
             gameUI.showLevelCompleteButtons(false);
         }
 
+        if (phoneControllerServer != null) {
+            phoneControllerServer.clearUiEvent();
+        }
+
         music.play(0, true);
         music.loop();
     }
@@ -433,9 +469,9 @@ public class PlayManager {
         int offsetY = (int) (wave * 3);
 
         int centerX = popupX + popupW / 2;
-        int baseY = popupY + 88 + offsetY;
+        int baseY = popupY + 82 + offsetY;
 
-        Font titleFont = new Font("Roboto", Font.BOLD, 46);
+        Font titleFont = new Font("Roboto", Font.BOLD, 40);
 
         drawCenteredText(g2, "Well played!", titleFont, centerX + 2, baseY + 2, new Color(0, 0, 0, 170));
         drawCenteredText(g2, "Well played!", titleFont, centerX, baseY, Color.WHITE);
@@ -451,6 +487,98 @@ public class PlayManager {
 
         g2.setColor(new Color(255, 255, 255, 55));
         g2.drawRect(x, y, w, h);
+    }
+
+    private String shorten(String text, int maxLen) {
+        if (text == null) return "-";
+        if (text.length() <= maxLen) return text;
+        return text.substring(0, maxLen - 3) + "...";
+    }
+
+    private void drawPhoneConnectionPanel(Graphics2D g2) {
+        if (phoneControllerServer == null) return;
+
+        int panelX = right_x + 100;
+        int panelY = top_y + 252;
+        int panelW = 300;
+        int panelH = 160;
+
+        g2.setColor(new Color(8, 8, 18, 225));
+        g2.fillRoundRect(panelX, panelY, panelW, panelH, 24, 24);
+
+        g2.setColor(Color.WHITE);
+        g2.setStroke(new BasicStroke(4f));
+        g2.drawRoundRect(panelX, panelY, panelW, panelH, 24, 24);
+
+        g2.setColor(Color.WHITE);
+        g2.setFont(new Font("Roboto", Font.BOLD, 28));
+        g2.drawString("PHONE", panelX + 18, panelY + 36);
+
+        boolean connected = phoneControllerServer.isPhoneConnected();
+
+        g2.setColor(connected ? new Color(0, 255, 140) : new Color(255, 80, 80));
+        g2.fillOval(panelX + 18, panelY + 60, 18, 18);
+
+        g2.setColor(connected ? new Color(0, 230, 120) : new Color(255, 110, 110));
+        g2.setFont(new Font("Roboto", Font.BOLD, 22));
+        g2.drawString(connected ? "CONNECTED" : "DISCONNECTED", panelX + 48, panelY + 76);
+
+        g2.setColor(new Color(220, 220, 220));
+        g2.setFont(new Font("Roboto", Font.PLAIN, 16));
+        g2.drawString("Open on iPhone:", panelX + 18, panelY + 108);
+
+        g2.setColor(Color.WHITE);
+        g2.setFont(new Font("Consolas", Font.PLAIN, 12));
+        g2.drawString(shorten(phoneControllerServer.getAccessUrl(), 34), panelX + 18, panelY + 132);
+        g2.drawString("Phone: " + shorten(phoneControllerServer.getClientIp(), 22), panelX + 18, panelY + 150);
+    }
+
+    private void drawPhoneGateOverlay(Graphics2D g2) {
+        if (phoneControllerServer == null) return;
+        if (phoneControllerServer.isPhoneConnected()) return;
+        if (gameOver || levelCompleted) return;
+        if (!waitingForPhone) return;
+
+        int popupW = 380;
+        int popupH = 126;
+        int popupX = left_x + (WIDTH - popupW) / 2;
+        int popupY = top_y + 78;
+
+        g2.setColor(new Color(8, 8, 18, 235));
+        g2.fillRoundRect(popupX, popupY, popupW, popupH, 24, 24);
+
+        g2.setColor(Color.WHITE);
+        g2.setStroke(new BasicStroke(3f));
+        g2.drawRoundRect(popupX, popupY, popupW, popupH, 24, 24);
+
+        String title;
+        String subtitle;
+
+        if (phoneHasConnectedOnce) {
+            title = "Phone controller disconnected";
+            subtitle = "Reconnect your phone to continue";
+        } else {
+            title = "Connect your phone to start";
+            subtitle = "Open the phone link shown on the right";
+        }
+
+        drawCenteredText(
+                g2,
+                title,
+                new Font("Roboto", Font.BOLD, 24),
+                popupX + popupW / 2,
+                popupY + 48,
+                new Color(255, 110, 110)
+        );
+
+        drawCenteredText(
+                g2,
+                subtitle,
+                new Font("Roboto", Font.PLAIN, 18),
+                popupX + popupW / 2,
+                popupY + 82,
+                Color.WHITE
+        );
     }
 
     public void draw(Graphics g) {
@@ -476,47 +604,44 @@ public class PlayManager {
         g2.setStroke(new BasicStroke(4f));
         g2.drawRect(left_x - 4, top_y - 4, WIDTH + 8, HEIGHT + 8);
 
-        int x = right_x + 100;
-        int y = bottom_y - 200;
+        final int scorePanelX = right_x + 100;
+        final int scorePanelY = top_y;
+        final int scorePanelW = 300;
+        final int scorePanelH = 230;
 
-        drawPanelDecor(g2, nextPanelCrop, x + 4, y + 4, 192, 192);
+        final int nextPanelX = right_x + 100;
+        final int nextPanelY = top_y + 434;
+        final int nextPanelSize = 180;
+        final int nextPanelInner = 172;
+
+        drawPanelDecor(g2, nextPanelCrop, nextPanelX + 4, nextPanelY + 4, nextPanelInner, nextPanelInner);
         g2.setColor(new Color(255, 255, 255, 25));
-        g2.fillRect(x + 4, y + 4, 192, 192);
+        g2.fillRect(nextPanelX + 4, nextPanelY + 4, nextPanelInner, nextPanelInner);
         g2.setColor(Color.WHITE);
-
-        g2.drawRect(x, y, 200, 200);
-        g2.setFont(new Font("Roboto", Font.BOLD, 30));
-        g2.drawString("NEXT", x + 60, y + 60);
-
-        final int SCORE_PANEL_WIDTH = 300;
-        final int SCORE_PANEL_HEIGHT = 230;
-        final int SCORE_PANEL_PADDING = 22;
-        final int TEXT_LINE_HEIGHT = 34;
-        final int VERTICAL_SPACING = 14;
-        final int TOP_MARGIN = 50;
-
-        int scorePanelX = right_x + 100;
-        int scorePanelY = top_y;
+        g2.drawRect(nextPanelX, nextPanelY, nextPanelSize, nextPanelSize);
+        g2.setFont(new Font("Roboto", Font.BOLD, 28));
+        g2.drawString("NEXT", nextPanelX + 42, nextPanelY + 36);
 
         drawPanelDecor(g2, scorePanelCrop, scorePanelX + 4, scorePanelY + 4, 292, 222);
         g2.setColor(new Color(255, 255, 255, 20));
         g2.fillRect(scorePanelX + 4, scorePanelY + 4, 292, 222);
         g2.setColor(Color.WHITE);
-
-        g2.drawRect(scorePanelX, scorePanelY, SCORE_PANEL_WIDTH, SCORE_PANEL_HEIGHT);
+        g2.drawRect(scorePanelX, scorePanelY, scorePanelW, scorePanelH);
         g2.setFont(new Font("Roboto", Font.BOLD, 27));
 
-        int textStartX = scorePanelX + SCORE_PANEL_PADDING;
-        int textStartY = scorePanelY + TOP_MARGIN;
+        int textStartX = scorePanelX + 22;
+        int textStartY = scorePanelY + 50;
+        int textLineHeight = 34;
+        int verticalSpacing = 14;
 
         g2.drawString("LEVEL: " + level, textStartX, textStartY);
-        textStartY += TEXT_LINE_HEIGHT + VERTICAL_SPACING;
+        textStartY += textLineHeight + verticalSpacing;
 
         g2.drawString("SCORE: " + score, textStartX, textStartY);
-        textStartY += TEXT_LINE_HEIGHT + VERTICAL_SPACING;
+        textStartY += textLineHeight + verticalSpacing;
 
         g2.drawString("TARGET: " + levelTargetScore, textStartX, textStartY);
-        textStartY += TEXT_LINE_HEIGHT + VERTICAL_SPACING;
+        textStartY += textLineHeight + verticalSpacing;
 
         g2.drawString("REMAINING: " + getRemainingPoints(), textStartX, textStartY);
 
@@ -550,8 +675,8 @@ public class PlayManager {
         }
 
         if (gameOver) {
-            x = left_x + 50;
-            y = top_y + 230;
+            int x = left_x + 50;
+            int y = top_y + 230;
             int width = 270;
             int height = 120;
 
@@ -568,8 +693,8 @@ public class PlayManager {
         }
 
         if (KeyHandler.pausePressed) {
-            x = left_x + 35;
-            y = top_y + 270;
+            int x = left_x + 35;
+            int y = top_y + 270;
             int width = 300;
             int height = 190;
 
@@ -581,41 +706,41 @@ public class PlayManager {
         }
 
         if (levelCompleted) {
-            int popupX = left_x + 18;
-            int popupY = top_y + 120;
-            int popupW = WIDTH - 36;
-            int popupH = 430;
+            int popupX = left_x + 28;
+            int popupY = top_y + 115;
+            int popupW = WIDTH - 56;
+            int popupH = 250;
 
-            g2.setColor(new Color(8, 8, 18, 235));
-            g2.fillRoundRect(popupX, popupY, popupW, popupH, 30, 30);
+            g2.setColor(new Color(8, 8, 18, 238));
+            g2.fillRoundRect(popupX, popupY, popupW, popupH, 28, 28);
 
-            g2.setColor(new Color(0, 0, 0, 120));
-            g2.fillRoundRect(popupX + 12, popupY + 12, popupW - 24, popupH - 24, 24, 24);
-
-            g2.setColor(Color.WHITE);
+            g2.setColor(new Color(255, 255, 255, 220));
             g2.setStroke(new BasicStroke(3f));
-            g2.drawRoundRect(popupX, popupY, popupW, popupH, 30, 30);
+            g2.drawRoundRect(popupX, popupY, popupW, popupH, 28, 28);
 
             drawAnimatedWellPlayed(g2, popupX, popupY, popupW);
 
             drawCenteredText(
                     g2,
                     "LEVEL COMPLETE",
-                    new Font("Roboto", Font.BOLD, 24),
+                    new Font("Roboto", Font.BOLD, 22),
                     popupX + popupW / 2,
-                    popupY + 165,
+                    popupY + 135,
                     Color.WHITE
             );
 
             drawCenteredText(
                     g2,
                     "Choose Next Level or Replay",
-                    new Font("Roboto", Font.PLAIN, 20),
+                    new Font("Roboto", Font.PLAIN, 18),
                     popupX + popupW / 2,
-                    popupY + 215,
+                    popupY + 175,
                     Color.WHITE
             );
         }
+
+        drawPhoneConnectionPanel(g2);
+        drawPhoneGateOverlay(g2);
 
         if (tetrisImage != null) {
             g2.drawImage(tetrisImage, 18, 8, null);

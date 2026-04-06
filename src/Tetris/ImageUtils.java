@@ -103,8 +103,7 @@ public class ImageUtils {
 
         BufferedImage current = src;
 
-        // aplicam de mai multe ori pentru blur clar vizibil
-        for (int i = 0; i < 8; i++) {
+        for (int i = 0; i < 10; i++) {
             BufferedImage blurred = new BufferedImage(
                     current.getWidth(),
                     current.getHeight(),

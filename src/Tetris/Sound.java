@@ -7,7 +7,8 @@ import java.util.Objects;
 public class Sound {
 
     private Clip musicClip;
-    URL[] url = new URL[10];
+    private final URL[] url = new URL[10];
+    private float musicVolume = 1.0f;
 
     public Sound() {
         try {
@@ -35,7 +36,6 @@ public class Sound {
             AudioInputStream ais = AudioSystem.getAudioInputStream(url[i]);
 
             if (music) {
-                // Pentru muzica de fundal folosim un singur clip reutilizabil
                 if (musicClip != null) {
                     if (musicClip.isRunning()) {
                         musicClip.stop();
@@ -47,11 +47,11 @@ public class Sound {
 
                 musicClip = AudioSystem.getClip();
                 musicClip.open(ais);
+                applyVolumeToClip(musicClip, musicVolume);
                 musicClip.setFramePosition(0);
                 musicClip.start();
 
             } else {
-                // Pentru efecte sonore folosim clip separat
                 Clip clip = AudioSystem.getClip();
                 clip.open(ais);
                 clip.setFramePosition(0);
@@ -85,6 +85,47 @@ public class Sound {
             if (musicClip.isOpen()) {
                 musicClip.close();
             }
+        }
+    }
+
+    public void setVolume(float value) {
+        musicVolume = Math.max(0.0f, Math.min(1.0f, value));
+
+        if (musicClip != null && musicClip.isOpen()) {
+            applyVolumeToClip(musicClip, musicVolume);
+        }
+    }
+
+    public float getVolume() {
+        return musicVolume;
+    }
+
+    private void applyVolumeToClip(Clip clip, float volume) {
+        if (clip == null || !clip.isOpen()) {
+            return;
+        }
+
+        try {
+            FloatControl gainControl = (FloatControl) clip.getControl(FloatControl.Type.MASTER_GAIN);
+
+            float min = gainControl.getMinimum();
+            float max = gainControl.getMaximum();
+
+            if (volume <= 0.0001f) {
+                gainControl.setValue(min);
+                return;
+            }
+
+            float curved = 0.15f + 0.85f * volume;
+            float dB = min + (max - min) * curved;
+
+            if (dB < min) dB = min;
+            if (dB > max) dB = max;
+
+            gainControl.setValue(dB);
+
+        } catch (IllegalArgumentException e) {
+            System.out.println("Volume control not supported for this clip.");
         }
     }
 }

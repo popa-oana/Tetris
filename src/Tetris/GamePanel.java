@@ -12,7 +12,7 @@ public class GamePanel extends JPanel implements Runnable {
 
     private static final int GIF_X = 25;
     private static final int GIF_W = 260;
-    private static final int GIF_H = 340;
+    private static final int GIF_H = 290;
 
     Thread gameThread;
     PlayManager pm;
@@ -21,6 +21,10 @@ public class GamePanel extends JPanel implements Runnable {
     private GameUI gameUI;
 
     private AnimatedGifPanel gifPanel;
+    private PhoneControllerServer phoneControllerServer;
+
+    private boolean phoneHasConnectedOnce = false;
+    private boolean musicStartedAfterPhoneConnection = false;
 
     GamePanel() {
         this.setPreferredSize(new Dimension(WIDTH, HEIGHT));
@@ -34,8 +38,18 @@ public class GamePanel extends JPanel implements Runnable {
         gameUI = new GameUI(pm, this);
         pm.setGameUI(gameUI);
 
+        phoneControllerServer = new PhoneControllerServer(pm);
+        phoneControllerServer.start();
+        pm.setPhoneControllerServer(phoneControllerServer);
+
+        KeyHandler.pausePressed = true;
+        pm.setWaitingForPhone(true);
+        pm.setPhoneHasConnectedOnce(false);
+
         initGifPanel();
         gameUI.addToPanel(this);
+
+        this.requestFocusInWindow();
     }
 
     private void initGifPanel() {
@@ -48,8 +62,6 @@ public class GamePanel extends JPanel implements Runnable {
             gifPanel = new AnimatedGifPanel(new ImageIcon(gifUrl));
         }
 
-        // aliniere pe baza cu tabla de joc:
-        // baza GIF-ului = baza tablei
         int gifY = PlayManager.bottom_y - GIF_H;
 
         gifPanel.setBounds(GIF_X, gifY, GIF_W, GIF_H);
@@ -59,14 +71,106 @@ public class GamePanel extends JPanel implements Runnable {
     public void launchGame() {
         gameThread = new Thread(this);
         gameThread.start();
-
-        music.play(0, true);
-        music.loop();
     }
 
     public void syncUI() {
         if (gameUI != null) {
             gameUI.syncPauseButton();
+        }
+    }
+
+    private void togglePauseFromPhone() {
+        if (pm.isGameOver() || pm.isLevelCompleted()) {
+            return;
+        }
+
+        KeyHandler.pausePressed = !KeyHandler.pausePressed;
+
+        if (KeyHandler.pausePressed) {
+            music.stop();
+        } else {
+            if (!music.isPlaying()) {
+                music.play(0, true);
+                music.loop();
+            }
+        }
+    }
+
+    private void applyRemotePhoneInput() {
+        if (phoneControllerServer == null) {
+            return;
+        }
+
+        if (phoneControllerServer.consumePauseToggle()) {
+            togglePauseFromPhone();
+        }
+
+        if (phoneControllerServer.consumeRestartPress()) {
+            pm.restartGame();
+        }
+
+        if (phoneControllerServer.consumeNextLevelPress()) {
+            pm.goToNextLevel();
+        }
+
+        if (phoneControllerServer.consumeReplayLevelPress()) {
+            pm.replayCurrentLevel();
+        }
+
+        if (phoneControllerServer.consumeRotatePress()) {
+            KeyHandler.upPressed = true;
+        }
+
+        if (phoneControllerServer.consumeLeftPress()) {
+            KeyHandler.leftPressed = true;
+        }
+
+        if (phoneControllerServer.consumeRightPress()) {
+            KeyHandler.rightPressed = true;
+        }
+
+        if (phoneControllerServer.consumeDownPress()) {
+            KeyHandler.downPressed = true;
+        }
+    }
+
+    private void lockGameBecausePhoneMissing() {
+        pm.setWaitingForPhone(true);
+        pm.setPhoneHasConnectedOnce(phoneHasConnectedOnce);
+
+        KeyHandler.upPressed = false;
+        KeyHandler.leftPressed = false;
+        KeyHandler.rightPressed = false;
+        KeyHandler.downPressed = false;
+
+        if (!pm.isGameOver() && !pm.isLevelCompleted()) {
+            KeyHandler.pausePressed = true;
+        }
+
+        if (music.isPlaying()) {
+            music.stop();
+        }
+
+        musicStartedAfterPhoneConnection = false;
+    }
+
+    private void unlockGameAfterPhoneConnected() {
+        pm.setWaitingForPhone(false);
+
+        if (!phoneHasConnectedOnce) {
+            phoneHasConnectedOnce = true;
+            pm.setPhoneHasConnectedOnce(true);
+        }
+
+        if (!musicStartedAfterPhoneConnection && !pm.isGameOver() && !pm.isLevelCompleted()) {
+            KeyHandler.pausePressed = false;
+
+            if (!music.isPlaying()) {
+                music.play(0, true);
+                music.loop();
+            }
+
+            musicStartedAfterPhoneConnection = true;
         }
     }
 
@@ -91,6 +195,18 @@ public class GamePanel extends JPanel implements Runnable {
     }
 
     private void update() {
+        boolean phoneConnected = phoneControllerServer != null && phoneControllerServer.isPhoneConnected();
+
+        if (!phoneConnected) {
+            lockGameBecausePhoneMissing();
+            syncUI();
+            return;
+        }
+
+        unlockGameAfterPhoneConnected();
+
+        applyRemotePhoneInput();
+
         if (!KeyHandler.pausePressed && !pm.isGameOver() && !pm.isLevelCompleted()) {
             pm.update();
         }
@@ -144,7 +260,9 @@ public class GamePanel extends JPanel implements Runnable {
             int imgW = gifIcon.getIconWidth();
             int imgH = gifIcon.getIconHeight();
 
-            if (imgW <= 0 || imgH <= 0) return;
+            if (imgW <= 0 || imgH <= 0) {
+                return;
+            }
 
             double scale = Math.min((double) panelW / imgW, (double) panelH / imgH);
 
