@@ -1,4 +1,4 @@
-let lastEventId = 0;
+﻿let lastEventId = 0;
 let isPaused = false;
 let lineResetTimer = null;
 
@@ -21,9 +21,54 @@ function setStatus(ok) {
 
 function showControllerScreen() {
     document.getElementById('controllerScreen').classList.add('show');
+    document.getElementById('levelScreen').classList.remove('show');
+    document.getElementById('gameOverScreen').classList.remove('show');
 }
 
+function showLevelScreen() {
+    document.getElementById('controllerScreen').classList.remove('show');
+    document.getElementById('levelScreen').classList.add('show');
+    document.getElementById('gameOverScreen').classList.remove('show');
+}
 
+function showGameOverScreen() {
+    document.getElementById('controllerScreen').classList.remove('show');
+    document.getElementById('levelScreen').classList.remove('show');
+    document.getElementById('gameOverScreen').classList.add('show');
+}
+
+function setReadyState() {
+    if (lineResetTimer) {
+        clearTimeout(lineResetTimer);
+        lineResetTimer = null;
+    }
+    const evtBox = document.getElementById('eventBox');
+    if (evtBox) evtBox.textContent = 'Ready';
+}
+
+function setLevelScore(score) {
+    document.getElementById('levelScoreBox').textContent =
+        'Current score: ' + score;
+}
+
+function setGameOverScore(score) {
+    document.getElementById('gameOverScoreBox').textContent =
+        'Final score: ' + score;
+}
+
+function showLineEvent() {
+    showControllerScreen();
+
+    if (lineResetTimer) {
+        clearTimeout(lineResetTimer);
+    }
+
+    const evtBox = document.getElementById('eventBox');
+    if (evtBox) evtBox.textContent = 'Line cleared!';
+    lineResetTimer = setTimeout(() => {
+        setReadyState();
+    }, 1300);
+}
 
 function handleConnectionLost() {
     setStatus(false);
@@ -90,9 +135,64 @@ bindTapButton('restartBtn', 'RESTART', () => {
     setReadyState();
 });
 
+bindTapButton('nextLevelBtn', 'NEXT_LEVEL', () => {
+    isPaused = false;
+    document.getElementById('pauseBtn').textContent = 'Pause';
+    showControllerScreen();
+    setReadyState();
+});
+
+bindTapButton('replayLevelBtn', 'REPLAY_LEVEL', () => {
+    isPaused = false;
+    document.getElementById('pauseBtn').textContent = 'Pause';
+    showControllerScreen();
+    setReadyState();
+});
+
+bindTapButton('gameOverRestartBtn', 'RESTART', () => {
+    isPaused = false;
+    document.getElementById('pauseBtn').textContent = 'Pause';
+    showControllerScreen();
+    setReadyState();
+});
+
 document.getElementById('volume').addEventListener('input', function () {
     api('/volume?v=' + encodeURIComponent(this.value)).catch(() => handleConnectionLost());
 });
+
+setInterval(() => {
+    api('/event')
+        .then(r => r.json())
+        .then(data => {
+            setStatus(true);
+
+            if (data.id > lastEventId) {
+                lastEventId = data.id;
+
+                if (data.type === 'line') {
+                    showLineEvent();
+                } else if (data.type === 'level') {
+                    if (lineResetTimer) {
+                        clearTimeout(lineResetTimer);
+                        lineResetTimer = null;
+                    }
+                    setLevelScore(data.score || 0);
+                    showLevelScreen();
+                } else if (data.type === 'gameover') {
+                    if (lineResetTimer) {
+                        clearTimeout(lineResetTimer);
+                        lineResetTimer = null;
+                    }
+                    setGameOverScore(data.score || 0);
+                    showGameOverScreen();
+                } else {
+                    showControllerScreen();
+                    setReadyState();
+                }
+            }
+        })
+        .catch(() => handleConnectionLost());
+}, 400);
 
 document.addEventListener('dblclick', function (e) {
     e.preventDefault();

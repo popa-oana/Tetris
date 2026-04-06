@@ -1,4 +1,4 @@
-package Tetris;
+﻿package Tetris;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
@@ -53,6 +53,7 @@ public class PhoneControllerServer {
             server.createContext("/ping", this::handlePing);
             server.createContext("/tap", this::handleTap);
             server.createContext("/volume", this::handleVolume);
+            server.createContext("/event", this::handleEvent);
 
             server.start();
 
@@ -377,7 +378,6 @@ public class PhoneControllerServer {
             try {
                 int intValue = Integer.parseInt(value);
                 float normalized = Math.max(0, Math.min(100, intValue)) / 100.0f;
-                // Ajusteaza volumul muzicii folosind variabila statica music
                 GamePanel.music.setVolume(normalized);
             } catch (Exception e) {
                 e.printStackTrace();
@@ -385,6 +385,13 @@ public class PhoneControllerServer {
         }
 
         writeResponse(exchange, "text/plain; charset=UTF-8", "OK");
+    }
+
+    private void handleEvent(HttpExchange exchange) throws IOException {
+        markClientSeen(exchange);
+        String json = "{\"type\":\"" + latestUiEventType + "\",\"id\":" + latestUiEventId +
+                ",\"score\":" + pm.getScore() + "}";
+        writeResponse(exchange, "application/json; charset=UTF-8", json);
     }
 
     private void startConnectionMonitor() {
