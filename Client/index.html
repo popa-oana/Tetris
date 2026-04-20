@@ -15,25 +15,24 @@
         <div id="status" class="status lost">Connecting...</div>
 
         <div id="controllerScreen" class="screen show">
-            <div id="eventBox" class="eventBox">Ready</div>
+            <div class="card" style="margin-bottom: 24px; padding: 18px;">
+                <div style="font-size: 16px; margin-bottom: 12px; font-weight: bold; text-align: left;">Volume</div>
+                <input class="range" id="volume" type="range" min="0" max="100" value="100" style="width: 100%;">
+            </div>
 
-            <div class="dpad">
-                <div class="empty">.</div>
+            <div class="actions" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 36px;">
+                <button id="pauseBtn" class="wide" style="margin: 0;">Pause</button>
+                <button id="restartBtn" class="wide" style="margin: 0;">Restart</button>
+            </div>
+
+            <div class="dpad"
+                style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; justify-items: center; align-items: center; margin-bottom: 30px;">
+                <div class="empty" style="visibility: hidden;">.</div>
                 <button id="rotateBtn" class="dir">⟳</button>
-                <div class="empty">.</div>
+                <div class="empty" style="visibility: hidden;">.</div>
                 <button id="leftBtn" class="dir">◀</button>
                 <button id="downBtn" class="dir">▼</button>
                 <button id="rightBtn" class="dir">▶</button>
-            </div>
-
-            <div class="actions">
-                <button id="pauseBtn" class="wide">Pause</button>
-                <button id="restartBtn" class="wide">Restart</button>
-            </div>
-
-            <div class="card">
-                <div style="font-size: 16px; margin-bottom: 6px;">Volume</div>
-                <input class="range" id="volume" type="range" min="0" max="100" value="100">
             </div>
 
             <div class="footer">
