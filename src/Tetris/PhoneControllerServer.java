@@ -50,6 +50,7 @@ public class PhoneControllerServer {
             server.createContext("/", this::handleRoot);
             server.createContext("/style.css", this::handleStyle);
             server.createContext("/ControllerApp.js", this::handleScript);
+            server.createContext("/gameover.gif", this::handleGameOverGif);
             server.createContext("/ping", this::handlePing);
             server.createContext("/tap", this::handleTap);
             server.createContext("/volume", this::handleVolume);
@@ -335,6 +336,20 @@ public class PhoneControllerServer {
         } catch (Exception e) {
         }
         writeResponse(exchange, "application/javascript; charset=UTF-8", js);
+    }
+
+    private void handleGameOverGif(HttpExchange exchange) throws IOException {
+        byte[] gifBytes = new byte[0];
+        try {
+            gifBytes = java.nio.file.Files.readAllBytes(java.nio.file.Paths.get("src/res/gameover.gif"));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        exchange.getResponseHeaders().set("Content-Type", "image/gif");
+        exchange.sendResponseHeaders(200, gifBytes.length);
+        try (OutputStream os = exchange.getResponseBody()) {
+            os.write(gifBytes);
+        }
     }
 
     private void handlePing(HttpExchange exchange) throws IOException {
